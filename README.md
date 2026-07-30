@@ -1,6 +1,6 @@
 # Electric Canvas — Client
 
-> **React 19 + Vite 8** — Frontend for the AI-powered t-shirt design platform.
+> **React + Vite 8** — Frontend for the AI-powered t-shirt design platform.
 
 [![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white)](https://react.dev)
 [![Vite](https://img.shields.io/badge/Vite-8-646CFF?logo=vite&logoColor=white)](https://vite.dev)
