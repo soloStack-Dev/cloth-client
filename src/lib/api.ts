@@ -32,6 +32,21 @@ export async function generateAiListing(data: {
   return res.json()
 }
 
+export async function submitDesign(data: {
+  name: string
+  description: string
+  price: string
+  imageUrl: string
+}) {
+  const res = await fetch(`${API_BASE}/ai/designs`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...data, keyword: 'custom-design' }),
+  })
+  if (!res.ok) throw new Error('Failed to save design')
+  return res.json()
+}
+
 export async function deleteAiProduct(id: string) {
   const res = await fetch(`${API_BASE}/ai/products/${id}`, {
     method: 'DELETE',
@@ -43,25 +58,5 @@ export async function deleteAiProduct(id: string) {
 export async function fetchBlogPosts() {
   const res = await fetch(`${API_BASE}/blog`)
   if (!res.ok) throw new Error('Failed to fetch blog posts')
-  return res.json()
-}
-
-export async function login(data: { username: string; password: string }) {
-  const res = await fetch(`${API_BASE}/auth/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  })
-  if (!res.ok) throw new Error('Login failed')
-  return res.json()
-}
-
-export async function signup(data: { username: string; email: string; password: string }) {
-  const res = await fetch(`${API_BASE}/auth/signup`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  })
-  if (!res.ok) throw new Error('Signup failed')
   return res.json()
 }
