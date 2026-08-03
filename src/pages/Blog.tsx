@@ -1,3 +1,13 @@
+/**
+ * Blog.tsx
+ * --------
+ * "Wearable Art Feed" page.
+ *
+ * Fetches posts from the backend, but falls back to a static gallery
+ * when the API is offline. Includes a GSAP entrance animation and a
+ * newsletter signup block.
+ */
+
 import { useEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import gsap from 'gsap'
@@ -8,6 +18,7 @@ import { fetchBlogPosts } from '../lib/api'
 
 gsap.registerPlugin(ScrollTrigger)
 
+/** Static gallery used when the backend is unreachable. */
 const staticPosts = [
   { id: '1', title: 'Butterfly Effect', imageUrl: '/asserts/BlogAsserts/butterfly-design-t-shirt.jpg' },
   { id: '2', title: 'Ducky Fresh', imageUrl: '/asserts/BlogAsserts/duck-design-t-shirt.jpg' },
@@ -27,16 +38,24 @@ const staticPosts = [
   { id: '16', title: 'Zone Out Frog', imageUrl: '/asserts/BlogAsserts/zone-out-frog-t-shirt.jpg' },
 ]
 
+/** Shape of a blog post returned by the API. */
+interface BlogPost {
+  id: string
+  title: string
+  imageUrl: string
+}
+
 export default function Blog() {
   const [email, setEmail] = useState('')
 
+  // Fetch the real feed; fall back to static posts if there is no data.
   const { data, isLoading, isError } = useQuery({
     queryKey: ['blogPosts'],
     queryFn: fetchBlogPosts,
   })
-
   const posts = data ?? staticPosts
 
+  // Refs for the GSAP animations.
   const heroRef = useRef<HTMLDivElement>(null)
   const badgeRef = useRef<HTMLSpanElement>(null)
   const headingRef = useRef<HTMLHeadingElement>(null)
@@ -45,6 +64,7 @@ export default function Blog() {
   const cardsContainerRef = useRef<HTMLDivElement>(null)
   const newsletterRef = useRef<HTMLDivElement>(null)
 
+  // Animate the hero text in sequence on mount.
   useEffect(() => {
     const ctx = gsap.context(() => {
       const tl = gsap.timeline({ defaults: { ease: 'power3.out' } })
@@ -55,24 +75,34 @@ export default function Blog() {
     return () => ctx.revert()
   }, [])
 
+  // Stagger the post cards in when they scroll into view.
   useEffect(() => {
     const ctx = gsap.context(() => {
       const cards = cardsContainerRef.current?.children
       if (cards) {
-        gsap.fromTo(cards,
+        gsap.fromTo(
+          cards,
           { y: 40, opacity: 0 },
-          { y: 0, opacity: 1, duration: 0.7, stagger: 0.06, scrollTrigger: { trigger: gridRef.current, start: 'top 85%' } },
+          {
+            y: 0, opacity: 1, duration: 0.7, stagger: 0.06,
+            scrollTrigger: { trigger: gridRef.current, start: 'top 85%' },
+          },
         )
       }
     }, gridRef)
     return () => ctx.revert()
   }, [])
 
+  // Fade the newsletter block in when it scrolls into view.
   useEffect(() => {
     const ctx = gsap.context(() => {
-      gsap.fromTo(newsletterRef.current,
+      gsap.fromTo(
+        newsletterRef.current,
         { y: 50, opacity: 0 },
-        { y: 0, opacity: 1, duration: 0.8, scrollTrigger: { trigger: newsletterRef.current, start: 'top 85%' } },
+        {
+          y: 0, opacity: 1, duration: 0.8,
+          scrollTrigger: { trigger: newsletterRef.current, start: 'top 85%' },
+        },
       )
     }, newsletterRef)
     return () => ctx.revert()
@@ -80,6 +110,7 @@ export default function Blog() {
 
   return (
     <Box>
+      {/* Hero header */}
       <Box
         ref={heroRef}
         sx={{
@@ -124,53 +155,52 @@ export default function Blog() {
         </Container>
       </Box>
 
+      {/* Masonry post gallery */}
       <Box ref={gridRef} sx={{ px: { xs: 3, lg: 6 }, py: { xs: 4, md: 6 }, bgcolor: 'white' }}>
         <Container maxWidth="lg" sx={{ maxWidth: '1200px !important' }}>
-          <Box
-            ref={cardsContainerRef}
-            sx={{
-              columnCount: { xs: 1, sm: 2, lg: 3 },
-              columnGap: 2,
-            }}
-          >
+          <Box ref={cardsContainerRef} sx={{ columnCount: { xs: 1, sm: 2, lg: 3 }, columnGap: 2 }}>
             {isLoading
-              ? Array.from({ length: 6 }).map((_, i) => (
+              ? /* Loading skeletons. */
+                Array.from({ length: 6 }).map((_, i) => (
                   <Box key={i} sx={{ breakInside: 'avoid', mb: 2, borderRadius: 3, overflow: 'hidden', bgcolor: 'white', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
                     <Box sx={{ aspectRatio: '3/4', bgcolor: '#e0e0e0' }} />
                   </Box>
                 ))
               : isError
-              ? (
-                  <Box sx={{ textAlign: 'center', py: 8, columnSpan: 'all' }}>
-                    <Typography color="error" variant="h6">Failed to load blog posts</Typography>
-                    <Typography sx={{ color: 'var(--color-text-muted)', mt: 1 }}>Please try again later.</Typography>
-                  </Box>
-                )
-              : posts.map((post: { id: string; title: string; imageUrl: string }) => (
-                  <Box key={post.id} sx={{ breakInside: 'avoid', mb: 2 }}>
-                    <Card
-                      sx={{
-                        borderRadius: 3,
-                        overflow: 'hidden',
-                        transition: 'all 0.3s ease',
-                        cursor: 'pointer',
-                        '&:hover': { transform: 'scale(1.02)', boxShadow: '0 10px 40px rgba(0,0,0,0.12)' },
-                      }}
-                      elevation={0}
-                    >
-                      <CardMedia
-                        component="img"
-                        image={post.imageUrl}
-                        alt={post.title}
-                        sx={{ width: '100%', display: 'block' }}
-                      />
-                    </Card>
-                  </Box>
-                ))}
+                ? /* Error state. */
+                  (
+                    <Box sx={{ textAlign: 'center', py: 8, columnSpan: 'all' }}>
+                      <Typography color="error" variant="h6">Failed to load blog posts</Typography>
+                      <Typography sx={{ color: 'var(--color-text-muted)', mt: 1 }}>Please try again later.</Typography>
+                    </Box>
+                  )
+                : /* Rendered posts. */
+                  posts.map((post: BlogPost) => (
+                    <Box key={post.id} sx={{ breakInside: 'avoid', mb: 2 }}>
+                      <Card
+                        sx={{
+                          borderRadius: 3,
+                          overflow: 'hidden',
+                          transition: 'all 0.3s ease',
+                          cursor: 'pointer',
+                          '&:hover': { transform: 'scale(1.02)', boxShadow: '0 10px 40px rgba(0,0,0,0.12)' },
+                        }}
+                        elevation={0}
+                      >
+                        <CardMedia
+                          component="img"
+                          image={post.imageUrl}
+                          alt={post.title}
+                          sx={{ width: '100%', display: 'block' }}
+                        />
+                      </Card>
+                    </Box>
+                  ))}
           </Box>
         </Container>
       </Box>
 
+      {/* Newsletter signup */}
       <Box sx={{ px: { xs: 3, lg: 6 }, pb: { xs: 6, md: 10 } }}>
         <Container maxWidth="lg" sx={{ maxWidth: '1100px !important' }}>
           <Box
@@ -194,6 +224,7 @@ export default function Blog() {
                 Get exclusive early access to limited edition drops, designer interviews, and creative tool updates delivered to your inbox.
               </Typography>
             </Box>
+
             <Box sx={{ width: { xs: '100%', lg: 'auto' }, flexShrink: 0 }}>
               <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 1.5 }}>
                 <TextField

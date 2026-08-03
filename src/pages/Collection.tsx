@@ -1,15 +1,43 @@
+/**
+ * Collection.tsx
+ * --------------
+ * "Curated Creations" shop page.
+ *
+ * Combines the static catalog (products.json) with AI-generated designs
+ * (ai.json), lets the user search / sort them, toggle favorites and buy
+ * a product straight from a detail dialog. Ends with an inspiration
+ * gallery.
+ */
+
 import { useEffect, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
-import { Box, Container, Typography, Card, CardMedia, CardContent, Grid, Select, MenuItem, FormControl, Dialog, IconButton, Button, TextField } from '@mui/material'
+import {
+  Box, Container, Typography, Card, CardMedia, CardContent, Grid, Select, MenuItem,
+  FormControl, Dialog, IconButton, Button, TextField,
+} from '@mui/material'
 import { Heart, ChevronDown, X, ShoppingBag, Search, Trash2 } from 'lucide-react'
 import { fetchProducts, fetchAiProducts, deleteAiProduct } from '../lib/api'
 import { useCartStore } from '../store/cartStore'
 
 gsap.registerPlugin(ScrollTrigger)
 
+/* ------------------------------------------------------------------ */
+/* Constants                                                           */
+/* ------------------------------------------------------------------ */
+
+/** Sort options shown in the filter dropdown. */
+const FILTERS = {
+  LATEST: 'Latest Arrivals',
+  BEST_SELLERS: 'Best Sellers',
+  PRICE_LOW_HIGH: 'Price: Low to High',
+  PRICE_HIGH_LOW: 'Price: High to Low',
+  TRENDING: 'Trending',
+} as const
+
+/** Static catalog used when the backend is unreachable. */
 const staticProducts = [
   { id: '1', name: 'Neon Pulse', description: 'Vibrant neon design', price: '32.99', imageUrl: '/asserts/CollectionAsserts/cat-drink-coffee-t-shirt.jpg' },
   { id: '2', name: 'Cyber Lotus', description: 'Digital flower pattern', price: '28.50', imageUrl: '/asserts/CollectionAsserts/cats-t-shirt.jpg' },
@@ -21,6 +49,7 @@ const staticProducts = [
   { id: '8', name: 'Duck Finger', description: 'Funny duck design', price: '27.99', imageUrl: '/asserts/CollectionAsserts/duck-finger-t-shirt.jpg' },
 ]
 
+/** Images in the dark "Wearable Art Gallery" section. */
 const galleryImages = [
   { src: '/asserts/CollectionAsserts/cube-t-shirt.png', label: 'Abstract Cube' },
   { src: '/asserts/CollectionAsserts/japanese-tree-t-shirt.jpg', label: 'Japanese Tree' },
@@ -30,49 +59,83 @@ const galleryImages = [
   { src: '/asserts/CollectionAsserts/women-black-t-shirt.png', label: 'Women Black Tee' },
 ]
 
+/** Shape shared by static + AI products. */
 type ProductItem = typeof staticProducts[number]
+
+/* ------------------------------------------------------------------ */
+/* Pure helper: search + sort                                          */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Filter the list by the search box and sort it by the chosen option.
+ * Kept as a pure function so the render stays simple and testable.
+ */
+function filterAndSortProducts(
+  products: ProductItem[],
+  searchQuery: string,
+  filter: string,
+): ProductItem[] {
+  // 1. Search — case-insensitive match on the product name.
+  const searched = searchQuery
+    ? products.filter((p) => p.name.toLowerCase().includes(searchQuery.toLowerCase()))
+    : products
+
+  // 2. Sort — only the two price options reorder the list.
+  const sorted = [...searched].sort((a, b) => {
+    if (filter === FILTERS.PRICE_LOW_HIGH) return parseFloat(a.price) - parseFloat(b.price)
+    if (filter === FILTERS.PRICE_HIGH_LOW) return parseFloat(b.price) - parseFloat(a.price)
+    return 0
+  })
+
+  return sorted
+}
+
+/* ------------------------------------------------------------------ */
+/* Page                                                                */
+/* ------------------------------------------------------------------ */
 
 export default function Collection() {
   const navigate = useNavigate()
   const { addItem } = useCartStore()
   const queryClient = useQueryClient()
+
+  // Local UI state.
   const [favorites, setFavorites] = useState<Set<string>>(new Set())
-  const [filter, setFilter] = useState('Latest Arrivals')
+  const [filter, setFilter] = useState(FILTERS.LATEST)
   const [selectedProduct, setSelectedProduct] = useState<ProductItem | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
 
+  // Fetch static catalog + AI designs (AI list refreshes every 3s).
   const { data, isLoading, isError } = useQuery({
     queryKey: ['products'],
     queryFn: fetchProducts,
   })
-
   const { data: aiData } = useQuery({
     queryKey: ['ai-products'],
     queryFn: fetchAiProducts,
     refetchInterval: 3000,
   })
 
+  // Merge static + AI products into one list.
   const products = [...(data ?? staticProducts), ...(aiData ?? [])]
 
+  // Is this product one of the AI-generated ones (deleteable)?
   const isAiProduct = (id: string) => aiData?.some((p: ProductItem) => p.id === id) ?? false
 
+  // Delete an AI design and refresh the AI list.
   const handleDeleteProduct = async (id: string) => {
     try {
       await deleteAiProduct(id)
       queryClient.invalidateQueries({ queryKey: ['ai-products'] })
-    } catch { /* ignore */ }
+    } catch {
+      // Deletion is best-effort; ignore errors.
+    }
   }
 
-  const filteredProducts = products
-    .filter((p: ProductItem) =>
-      !searchQuery || p.name.toLowerCase().includes(searchQuery.toLowerCase())
-    )
-    .sort((a: ProductItem, b: ProductItem) => {
-      if (filter === 'Price: Low to High') return parseFloat(a.price) - parseFloat(b.price)
-      if (filter === 'Price: High to Low') return parseFloat(b.price) - parseFloat(a.price)
-      return 0
-    })
+  // The list actually rendered, after search + sort.
+  const filteredProducts = filterAndSortProducts(products, searchQuery, filter)
 
+  // Refs for the GSAP animations.
   const heroRef = useRef<HTMLDivElement>(null)
   const heroContentRef = useRef<HTMLDivElement>(null)
   const gridRef = useRef<HTMLDivElement>(null)
@@ -81,6 +144,11 @@ export default function Collection() {
   const galleryRef = useRef<HTMLDivElement>(null)
   const galleryGridRef = useRef<HTMLDivElement>(null)
 
+  /* ------------------------------------------------------------------ */
+  /* Animations                                                          */
+  /* ------------------------------------------------------------------ */
+
+  // Hero content fades in on load.
   useEffect(() => {
     const ctx = gsap.context(() => {
       const tl = gsap.timeline({ defaults: { ease: 'power3.out' } })
@@ -89,44 +157,64 @@ export default function Collection() {
     return () => ctx.revert()
   }, [])
 
+  // Grid header fades in when scrolled to.
   useEffect(() => {
     const ctx = gsap.context(() => {
       if (gridHeaderRef.current) {
-        gsap.fromTo(gridHeaderRef.current,
+        gsap.fromTo(
+          gridHeaderRef.current,
           { y: 30, opacity: 0 },
-          { y: 0, opacity: 1, duration: 0.6, scrollTrigger: { trigger: gridRef.current, start: 'top 85%' } },
+          {
+            y: 0, opacity: 1, duration: 0.6,
+            scrollTrigger: { trigger: gridRef.current, start: 'top 85%' },
+          },
         )
       }
     }, gridRef)
     return () => ctx.revert()
   }, [])
 
+  // Product cards stagger in when scrolled to.
   useEffect(() => {
     const ctx = gsap.context(() => {
       const cards = cardsContainerRef.current?.children
       if (cards) {
-        gsap.fromTo(cards,
+        gsap.fromTo(
+          cards,
           { y: 60, opacity: 0 },
-          { y: 0, opacity: 1, duration: 0.8, stagger: 0.08, scrollTrigger: { trigger: gridRef.current, start: 'top 80%' } },
+          {
+            y: 0, opacity: 1, duration: 0.8, stagger: 0.08,
+            scrollTrigger: { trigger: gridRef.current, start: 'top 80%' },
+          },
         )
       }
     }, gridRef)
     return () => ctx.revert()
   }, [])
 
+  // Gallery cells stagger in when scrolled to.
   useEffect(() => {
     const ctx = gsap.context(() => {
       const items = galleryGridRef.current?.children
       if (items) {
-        gsap.fromTo(items,
+        gsap.fromTo(
+          items,
           { y: 40, opacity: 0, scale: 0.98 },
-          { y: 0, opacity: 1, scale: 1, duration: 0.7, stagger: 0.06, scrollTrigger: { trigger: galleryRef.current, start: 'top 85%' } },
+          {
+            y: 0, opacity: 1, scale: 1, duration: 0.7, stagger: 0.06,
+            scrollTrigger: { trigger: galleryRef.current, start: 'top 85%' },
+          },
         )
       }
     }, galleryRef)
     return () => ctx.revert()
   }, [])
 
+  /* ------------------------------------------------------------------ */
+  /* Handlers                                                            */
+  /* ------------------------------------------------------------------ */
+
+  // Add or remove an id from the favorites set (always returns a new Set).
   const toggleFavorite = (id: string) => {
     setFavorites((prev) => {
       const next = new Set(prev)
@@ -136,6 +224,7 @@ export default function Collection() {
     })
   }
 
+  // Add the product to the cart (default size M) and go to the cart page.
   const handleBuyNow = (product: ProductItem) => {
     addItem({
       id: crypto.randomUUID(),
@@ -153,6 +242,9 @@ export default function Collection() {
 
   return (
     <Box>
+      {/* ------------------------------------------------------------ */}
+      {/* Hero header                                                   */}
+      {/* ------------------------------------------------------------ */}
       <Box
         ref={heroRef}
         sx={{
@@ -163,22 +255,22 @@ export default function Collection() {
       >
         <Container maxWidth="lg">
           <Box ref={heroContentRef} sx={{ maxWidth: 560 }}>
-            <Typography
-              sx={{ fontSize: '48px', fontWeight: 700, lineHeight: 1.1, color: 'var(--color-text-primary)' }}
-            >
+            <Typography sx={{ fontSize: '48px', fontWeight: 700, lineHeight: 1.1, color: 'var(--color-text-primary)' }}>
               Curated Creations
             </Typography>
-            <Typography
-              sx={{ mt: 2, color: 'var(--color-text-secondary)', fontSize: '1rem', lineHeight: 1.7 }}
-            >
+            <Typography sx={{ mt: 2, color: 'var(--color-text-secondary)', fontSize: '1rem', lineHeight: 1.7 }}>
               Browse the vault of community-designed masterpieces. Every piece is a unique synthesis of human imagination and algorithmic precision.
             </Typography>
           </Box>
         </Container>
       </Box>
 
+      {/* ------------------------------------------------------------ */}
+      {/* Product grid                                                  */}
+      {/* ------------------------------------------------------------ */}
       <Box ref={gridRef} sx={{ py: { xs: 6, md: 8 }, px: { xs: 3, lg: 6 }, bgcolor: 'white' }}>
         <Container maxWidth="lg">
+          {/* Search box + sort dropdown. */}
           <Box
             ref={gridHeaderRef}
             sx={{
@@ -191,15 +283,14 @@ export default function Collection() {
             }}
           >
             <Box>
-              <Typography
-                sx={{ color: 'var(--color-primary-blue)', fontSize: '0.75rem', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase' }}
-              >
+              <Typography sx={{ color: 'var(--color-primary-blue)', fontSize: '0.75rem', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
                 THE VAULT
               </Typography>
               <Typography sx={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--color-text-primary)', mt: 0.5 }}>
                 Community Favorites
               </Typography>
             </Box>
+
             <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 1.5, alignItems: { xs: 'stretch', sm: 'center' } }}>
               <TextField
                 size="small"
@@ -237,19 +328,21 @@ export default function Collection() {
                     '& .MuiOutlinedInput-notchedOutline': { borderColor: 'var(--border-default)' },
                   }}
                 >
-                  <MenuItem value="Latest Arrivals">Latest Arrivals</MenuItem>
-                  <MenuItem value="Best Sellers">Best Sellers</MenuItem>
-                  <MenuItem value="Price: Low to High">Price: Low to High</MenuItem>
-                  <MenuItem value="Price: High to Low">Price: High to Low</MenuItem>
-                  <MenuItem value="Trending">Trending</MenuItem>
+                  <MenuItem value={FILTERS.LATEST}>Latest Arrivals</MenuItem>
+                  <MenuItem value={FILTERS.BEST_SELLERS}>Best Sellers</MenuItem>
+                  <MenuItem value={FILTERS.PRICE_LOW_HIGH}>Price: Low to High</MenuItem>
+                  <MenuItem value={FILTERS.PRICE_HIGH_LOW}>Price: High to Low</MenuItem>
+                  <MenuItem value={FILTERS.TRENDING}>Trending</MenuItem>
                 </Select>
               </FormControl>
             </Box>
           </Box>
 
+          {/* Product cards: skeleton → error → rendered list. */}
           <Grid container spacing={3} ref={cardsContainerRef}>
             {isLoading
-              ? Array.from({ length: 8 }).map((_, i) => (
+              ? /* Loading skeletons. */
+                Array.from({ length: 8 }).map((_, i) => (
                   <Grid size={{ xs: 12, sm: 6, lg: 3 }} key={i}>
                     <Box sx={{ borderRadius: 3, overflow: 'hidden', bgcolor: 'white', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
                       <Box sx={{ aspectRatio: '1/1', bgcolor: '#e0e0e0' }} />
@@ -261,98 +354,102 @@ export default function Collection() {
                   </Grid>
                 ))
               : isError
-              ? (
-                  <Grid size={{ xs: 12 }}>
-                    <Box sx={{ textAlign: 'center', py: 8 }}>
-                      <Typography color="error" variant="h6">Failed to load products</Typography>
-                      <Typography sx={{ color: 'var(--color-text-muted)', mt: 1 }}>Please try again later.</Typography>
-                    </Box>
-                  </Grid>
-                )
-              : filteredProducts.map((product: ProductItem) => {
-                  const isFav = favorites.has(product.id)
-                  return (
-                    <Grid size={{ xs: 12, sm: 6, lg: 3 }} key={product.id}>
-                      <Card
-                        onClick={() => setSelectedProduct(product)}
-                        sx={{
-                          cursor: 'pointer',
-                          borderRadius: 3,
-                          overflow: 'hidden',
-                          transition: 'all 0.3s ease',
-                          '&:hover': {
-                            transform: 'translateY(-6px)',
-                            boxShadow: '0 10px 40px rgba(0,0,0,0.12)',
-                          },
-                        }}
-                        elevation={0}
-                      >
-                        <Box sx={{ aspectRatio: '1/1', overflow: 'hidden', bgcolor: '#fafafa' }}>
-                          <CardMedia
-                            component="img"
-                            image={product.imageUrl}
-                            alt={product.name}
-                            sx={{
-                              width: '100%',
-                              height: '100%',
-                              objectFit: 'cover',
-                              transition: 'transform 0.5s ease',
-                            }}
-                            className="product-card-img"
-                          />
-                        </Box>
-                        <CardContent sx={{ p: 2.5 }}>
-                          <Typography sx={{ fontSize: '1rem', fontWeight: 600, color: 'var(--color-text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {product.name}
-                          </Typography>
-                          <Typography sx={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', mt: 0.5, lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                            {product.description}
-                          </Typography>
-                          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 2 }}>
-                            <Typography sx={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--color-primary-blue)' }}>
-                              ${product.price}
-                            </Typography>
-                            <Box
-                              component="button"
-                              onClick={(e) => { e.preventDefault(); toggleFavorite(product.id) }}
-                              aria-label={isFav ? 'Remove from favorites' : 'Add to favorites'}
-                              aria-pressed={isFav}
-                              sx={{
-                                p: 0.75,
-                                borderRadius: '50%',
-                                border: 'none',
-                                background: 'none',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                transition: 'transform 0.2s ease',
-                                '&:hover': { transform: 'scale(1.1)' },
-                                '&:active': { transform: 'scale(0.9)' },
-                              }}
-                            >
-                              <Heart
-                                size={20}
-                                fill={isFav ? '#ef4444' : 'none'}
-                                stroke={isFav ? '#ef4444' : 'var(--color-text-muted)'}
-                              />
-                            </Box>
-                          </Box>
-                        </CardContent>
-                      </Card>
+                ? /* Error state. */
+                  (
+                    <Grid size={{ xs: 12 }}>
+                      <Box sx={{ textAlign: 'center', py: 8 }}>
+                        <Typography color="error" variant="h6">Failed to load products</Typography>
+                        <Typography sx={{ color: 'var(--color-text-muted)', mt: 1 }}>Please try again later.</Typography>
+                      </Box>
                     </Grid>
                   )
-                })}
+                : /* Product cards. */
+                  filteredProducts.map((product: ProductItem) => {
+                    const isFav = favorites.has(product.id)
+                    return (
+                      <Grid size={{ xs: 12, sm: 6, lg: 3 }} key={product.id}>
+                        <Card
+                          onClick={() => setSelectedProduct(product)}
+                          sx={{
+                            cursor: 'pointer',
+                            borderRadius: 3,
+                            overflow: 'hidden',
+                            transition: 'all 0.3s ease',
+                            '&:hover': {
+                              transform: 'translateY(-6px)',
+                              boxShadow: '0 10px 40px rgba(0,0,0,0.12)',
+                            },
+                          }}
+                          elevation={0}
+                        >
+                          <Box sx={{ aspectRatio: '1/1', overflow: 'hidden', bgcolor: '#fafafa' }}>
+                            <CardMedia
+                              component="img"
+                              image={product.imageUrl}
+                              alt={product.name}
+                              sx={{
+                                width: '100%',
+                                height: '100%',
+                                objectFit: 'cover',
+                                transition: 'transform 0.5s ease',
+                              }}
+                              className="product-card-img"
+                            />
+                          </Box>
+                          <CardContent sx={{ p: 2.5 }}>
+                            <Typography sx={{ fontSize: '1rem', fontWeight: 600, color: 'var(--color-text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {product.name}
+                            </Typography>
+                            <Typography sx={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', mt: 0.5, lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                              {product.description}
+                            </Typography>
+                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 2 }}>
+                              <Typography sx={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--color-primary-blue)' }}>
+                                ${product.price}
+                              </Typography>
+                              {/* Favorite toggle. */}
+                              <Box
+                                component="button"
+                                onClick={(e) => { e.preventDefault(); toggleFavorite(product.id) }}
+                                aria-label={isFav ? 'Remove from favorites' : 'Add to favorites'}
+                                aria-pressed={isFav}
+                                sx={{
+                                  p: 0.75,
+                                  borderRadius: '50%',
+                                  border: 'none',
+                                  background: 'none',
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  transition: 'transform 0.2s ease',
+                                  '&:hover': { transform: 'scale(1.1)' },
+                                  '&:active': { transform: 'scale(0.9)' },
+                                }}
+                              >
+                                <Heart
+                                  size={20}
+                                  fill={isFav ? '#ef4444' : 'none'}
+                                  stroke={isFav ? '#ef4444' : 'var(--color-text-muted)'}
+                                />
+                              </Box>
+                            </Box>
+                          </CardContent>
+                        </Card>
+                      </Grid>
+                    )
+                  })}
           </Grid>
         </Container>
       </Box>
 
+      {/* ------------------------------------------------------------ */}
+      {/* Inspiration gallery (dark section)                            */}
+      {/* ------------------------------------------------------------ */}
       <Box ref={galleryRef} sx={{ py: { xs: 8, md: 12 }, px: { xs: 3, lg: 6 }, backgroundColor: '#0F172A' }}>
         <Container maxWidth="lg">
           <Box sx={{ textAlign: 'center', mb: 8 }}>
-            <Typography
-              sx={{ color: '#60A5FA', fontSize: '0.75rem', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase' }}
-            >
+            <Typography sx={{ color: '#60A5FA', fontSize: '0.75rem', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
               INSPIRATION FEED
             </Typography>
             <Typography sx={{ fontSize: '1.875rem', fontWeight: 700, color: 'white', mt: 1.5 }}>
@@ -363,6 +460,7 @@ export default function Collection() {
             </Typography>
           </Box>
 
+          {/* First and fourth cells are enlarged for a mosaic feel. */}
           <Box
             ref={galleryGridRef}
             sx={{
@@ -405,6 +503,7 @@ export default function Collection() {
                       transition: 'transform 0.5s ease',
                     }}
                   />
+                  {/* Hover overlay + label. */}
                   <Box
                     className="gallery-cell-overlay"
                     sx={{
@@ -438,7 +537,9 @@ export default function Collection() {
         </Container>
       </Box>
 
-      {/* Product Detail Dialog */}
+      {/* ------------------------------------------------------------ */}
+      {/* Product detail dialog                                         */}
+      {/* ------------------------------------------------------------ */}
       <Dialog
         open={!!selectedProduct}
         onClose={() => setSelectedProduct(null)}
@@ -448,6 +549,7 @@ export default function Collection() {
       >
         {selectedProduct && (
           <>
+            {/* Close button. */}
             <IconButton
               onClick={() => setSelectedProduct(null)}
               sx={{
@@ -462,6 +564,8 @@ export default function Collection() {
             >
               <X size={20} />
             </IconButton>
+
+            {/* Product image + details. */}
             <Box
               component="img"
               src={selectedProduct.imageUrl}
@@ -475,11 +579,14 @@ export default function Collection() {
               <Typography sx={{ mt: 1, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
                 {selectedProduct.description}
               </Typography>
+
+              {/* Price + actions. */}
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 3 }}>
                 <Typography sx={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--primary-blue)' }}>
                   ${selectedProduct.price}
                 </Typography>
                 <Box sx={{ display: 'flex', gap: 1 }}>
+                  {/* AI designs can be deleted from here. */}
                   {isAiProduct(selectedProduct.id) && (
                     <Button
                       variant="outlined"

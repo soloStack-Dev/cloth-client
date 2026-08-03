@@ -1,3 +1,17 @@
+/**
+ * About.tsx
+ * ---------
+ * Brand story page. Three sections:
+ *
+ *   1. Hero         — full-height cover image + headline + CTAs
+ *   2. Our Origin   — story text beside product photos
+ *   3. Gallery      — masonry grid of community masterpieces
+ *   4. CTA banner   — final call-to-action
+ *
+ * Uses a small inline <style> block for the masonry layout classes,
+ * plus GSAP scroll animations.
+ */
+
 import { useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { Box, Typography, Button, Grid } from '@mui/material'
@@ -7,8 +21,10 @@ import { ArrowRight } from 'lucide-react'
 
 gsap.registerPlugin(ScrollTrigger)
 
+/** Dark gradient placed over the hero image for text readability. */
 const OVERLAY_GRADIENT = 'linear-gradient(to top, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.2) 40%, transparent 100%)'
 
+/** Community designs shown in the masonry gallery. */
 const galleryItems = [
   { title: "Spider's Web", artist: 'Alex Chen', image: '/asserts/AboutAsserts/black-t-shirt-spidy.png' },
   { title: 'Deep Blue', artist: 'Maria Santos', image: '/asserts/AboutAsserts/dark-blue-design-t-shirt.png' },
@@ -21,6 +37,7 @@ const galleryItems = [
 ]
 
 export default function About() {
+  // Refs for each animated element (used by GSAP).
   const heroRef = useRef<HTMLDivElement>(null)
   const heroContentRef = useRef<HTMLDivElement>(null)
   const storyRef = useRef<HTMLDivElement>(null)
@@ -30,6 +47,11 @@ export default function About() {
   const galleryGridRef = useRef<HTMLDivElement>(null)
   const ctaRef = useRef<HTMLDivElement>(null)
 
+  /* ------------------------------------------------------------------ */
+  /* Scroll / entrance animations                                        */
+  /* ------------------------------------------------------------------ */
+
+  // Hero content fades in on load.
   useEffect(() => {
     const ctx = gsap.context(() => {
       gsap.fromTo(
@@ -41,6 +63,7 @@ export default function About() {
     return () => ctx.revert()
   }, [])
 
+  // Story text and images slide in from their sides when scrolled to.
   useEffect(() => {
     const ctx = gsap.context(() => {
       gsap.fromTo(
@@ -63,6 +86,7 @@ export default function About() {
     return () => ctx.revert()
   }, [])
 
+  // Gallery cards stagger in when scrolled to.
   useEffect(() => {
     const ctx = gsap.context(() => {
       const cards = galleryGridRef.current?.children
@@ -80,6 +104,7 @@ export default function About() {
     return () => ctx.revert()
   }, [])
 
+  // CTA banner pops in when scrolled to.
   useEffect(() => {
     const ctx = gsap.context(() => {
       gsap.fromTo(
@@ -96,6 +121,7 @@ export default function About() {
 
   return (
     <Box sx={{ overflow: 'hidden' }}>
+      {/* Page-specific layout styles (masonry grid, mockup bar, etc.). */}
       <style>{`
         .about-hero {
           position: relative;
@@ -193,7 +219,9 @@ export default function About() {
         }
       `}</style>
 
-      {/* Hero Section */}
+      {/* ------------------------------------------------------------ */}
+      {/* Hero section                                                  */}
+      {/* ------------------------------------------------------------ */}
       <Box ref={heroRef} className="about-hero">
         <Box className="about-hero-bg" />
         <Box className="about-hero-overlay" />
@@ -234,6 +262,8 @@ export default function About() {
           >
             Crafting custom apparel for every age, every style, and every wild idea.
           </Typography>
+
+          {/* Two CTAs: primary and secondary. */}
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, justifyContent: 'center' }}>
             <Button
               component={Link}
@@ -241,21 +271,7 @@ export default function About() {
               variant="contained"
               size="large"
               endIcon={<ArrowRight size={18} />}
-              sx={{
-                bgcolor: '#0055FF',
-                color: '#fff',
-                fontWeight: 600,
-                px: 4,
-                py: 1.75,
-                borderRadius: '12px',
-                fontSize: '15px',
-                textTransform: 'none',
-                '&:hover': {
-                  bgcolor: '#0044CC',
-                  transform: 'scale(1.02)',
-                },
-                transition: 'all 150ms ease',
-              }}
+              sx={primaryButtonStyles}
             >
               Explore the Canvas
             </Button>
@@ -264,23 +280,7 @@ export default function About() {
               to="/how-it-works"
               variant="outlined"
               size="large"
-              sx={{
-                borderColor: 'rgba(255,255,255,0.4)',
-                borderWidth: 1.5,
-                color: '#fff',
-                fontWeight: 600,
-                px: 4,
-                py: 1.75,
-                borderRadius: '12px',
-                fontSize: '15px',
-                textTransform: 'none',
-                '&:hover': {
-                  borderColor: 'rgba(255,255,255,0.6)',
-                  bgcolor: 'rgba(255,255,255,0.1)',
-                  transform: 'scale(1.02)',
-                },
-                transition: 'all 150ms ease',
-              }}
+              sx={secondaryButtonStyles}
             >
               How it Works
             </Button>
@@ -288,134 +288,56 @@ export default function About() {
         </Box>
       </Box>
 
-      {/* Our Origin Section */}
+      {/* ------------------------------------------------------------ */}
+      {/* Our Origin section                                            */}
+      {/* ------------------------------------------------------------ */}
       <Box ref={storyRef} sx={{ bgcolor: '#F8FAFC' }} className="about-section">
         <Box className="about-container">
           <Grid container spacing={{ xs: 4, lg: 6 }} sx={{ alignItems: 'center' }}>
+            {/* Story text + stats. */}
             <Grid size={{ xs: 12, lg: 6 }}>
               <Box ref={storyTextRef}>
-                <Typography
-                  sx={{
-                    color: 'var(--primary-blue, #0055FF)',
-                    fontSize: '12px',
-                    fontWeight: 600,
-                    letterSpacing: '0.2em',
-                    textTransform: 'uppercase',
-                    mb: 1,
-                  }}
-                >
+                <Typography sx={sectionLabelStyles}>
                   The Journey
                 </Typography>
-                <Typography
-                  variant="h2"
-                  sx={{
-                    fontSize: { xs: '30px', md: '40px' },
-                    fontWeight: 700,
-                    lineHeight: 1.2,
-                    color: '#0F172A',
-                    mb: 2.5,
-                  }}
-                >
+                <Typography variant="h2" sx={sectionHeadingStyles}>
                   Our Origin
                 </Typography>
-                <Typography
-                  sx={{
-                    fontSize: '16px',
-                    lineHeight: 1.7,
-                    color: '#64748B',
-                    maxWidth: '520px',
-                    mb: 2.5,
-                  }}
-                >
+                <Typography sx={bodyTextStyles}>
                   Electric Canvas was born from a simple belief: your{' '}
                   <Box component="strong" sx={{ fontStyle: 'italic', fontWeight: 700 }}>style</Box> should be as
                   unique as <Box component="strong" sx={{ fontStyle: 'italic', fontWeight: 700 }}>you</Box> are. What started as a small workshop experimenting with
                   custom prints has grown into a movement — a community of creators, dreamers, and rebels who refuse to wear
                   what everyone else is wearing.
                 </Typography>
-                <Typography
-                  sx={{
-                    fontSize: '16px',
-                    lineHeight: 1.7,
-                    color: '#64748B',
-                    maxWidth: '520px',
-                    mb: 2.5,
-                  }}
-                >
+                <Typography sx={bodyTextStyles}>
                   Every piece we create begins with your vision. From the first sketch
                   to the final stitch, we pour craftsmanship and care into every step.
                 </Typography>
-                <Typography
-                  sx={{
-                    fontSize: '16px',
-                    lineHeight: 1.7,
-                    color: '#64748B',
-                    maxWidth: '520px',
-                    mb: 5,
-                  }}
-                >
+                <Typography sx={{ ...bodyTextStyles, mb: 5 }}>
                   Whether you're designing for yourself, your brand, or a special event,
                   we're here to turn your ideas into something real &mdash; something that
                   fits, feels, and speaks volumes without saying a word.
                 </Typography>
+
+                {/* Brand stats. */}
                 <Box sx={{ display: 'flex', gap: 6 }}>
                   <Box>
-                    <Typography
-                      sx={{
-                        fontSize: '36px',
-                        fontWeight: 700,
-                        lineHeight: 1,
-                        color: 'var(--primary-blue, #0055FF)',
-                      }}
-                    >
-                      100%
-                    </Typography>
-                    <Typography
-                      sx={{
-                        fontSize: '14px',
-                        lineHeight: 1.4,
-                        color: '#64748B',
-                        mt: 0.5,
-                      }}
-                    >
-                      Creative Control
-                    </Typography>
+                    <Typography sx={statNumberStyles}>100%</Typography>
+                    <Typography sx={statLabelStyles}>Creative Control</Typography>
                   </Box>
                   <Box>
-                    <Typography
-                      sx={{
-                        fontSize: '36px',
-                        fontWeight: 700,
-                        lineHeight: 1,
-                        color: 'var(--primary-blue, #0055FF)',
-                      }}
-                    >
-                      &infin;
-                    </Typography>
-                    <Typography
-                      sx={{
-                        fontSize: '14px',
-                        lineHeight: 1.4,
-                        color: '#64748B',
-                        mt: 0.5,
-                      }}
-                    >
-                      Design Possibilities
-                    </Typography>
+                    <Typography sx={statNumberStyles}>&infin;</Typography>
+                    <Typography sx={statLabelStyles}>Design Possibilities</Typography>
                   </Box>
                 </Box>
               </Box>
             </Grid>
+
+            {/* Story photos. */}
             <Grid size={{ xs: 12, lg: 6 }}>
               <Box ref={storyImagesRef} sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <Box
-                  sx={{
-                    borderRadius: '20px',
-                    overflow: 'hidden',
-                    boxShadow: '0 8px 24px rgba(0,0,0,0.08)',
-                    lineHeight: 0,
-                  }}
-                >
+                <Box sx={photoFrameStyles}>
                   <Box
                     component="img"
                     src="/asserts/AboutAsserts/t-shirt-design-mechine.png"
@@ -423,15 +345,7 @@ export default function About() {
                     sx={{ width: '100%', height: { xs: 240, md: 300 }, objectFit: 'cover', display: 'block' }}
                   />
                 </Box>
-                <Box
-                  sx={{
-                    borderRadius: '20px',
-                    overflow: 'hidden',
-                    boxShadow: '0 8px 24px rgba(0,0,0,0.08)',
-                    lineHeight: 0,
-                    mt: { xs: 0, lg: 6 },
-                  }}
-                >
+                <Box sx={{ ...photoFrameStyles, mt: { xs: 0, lg: 6 } }}>
                   <Box
                     component="img"
                     src="/asserts/AboutAsserts/t-shirt-colorful-design.png"
@@ -445,32 +359,16 @@ export default function About() {
         </Box>
       </Box>
 
-      {/* Community Masterpieces Gallery */}
+      {/* ------------------------------------------------------------ */}
+      {/* Community gallery section                                     */}
+      {/* ------------------------------------------------------------ */}
       <Box ref={galleryRef} sx={{ bgcolor: '#F1F5F9' }} className="about-section">
         <Box className="about-container">
+          {/* Section header. */}
           <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, justifyContent: 'space-between', alignItems: { md: 'flex-end' }, mb: 5, gap: 2 }}>
             <Box>
-              <Typography
-                sx={{
-                  color: 'var(--primary-blue, #0055FF)',
-                  fontSize: '12px',
-                  fontWeight: 600,
-                  letterSpacing: '0.2em',
-                  textTransform: 'uppercase',
-                  mb: 1,
-                }}
-              >
-                Gallery
-              </Typography>
-              <Typography
-                variant="h2"
-                sx={{
-                  fontSize: { xs: '30px', md: '40px' },
-                  fontWeight: 700,
-                  lineHeight: 1.2,
-                  color: '#0F172A',
-                }}
-              >
+              <Typography sx={sectionLabelStyles}>Gallery</Typography>
+              <Typography variant="h2" sx={sectionHeadingStyles}>
                 Community Masterpieces
               </Typography>
             </Box>
@@ -486,6 +384,8 @@ export default function About() {
               A curation of the boldest and most intricate designs created by our global community of visionaries.
             </Typography>
           </Box>
+
+          {/* Masonry grid of designs; the first card is styled like a browser mockup. */}
           <Box ref={galleryGridRef} className="about-gallery-grid">
             {galleryItems.map((item, i) => (
               <Box key={i} className="about-gallery-card">
@@ -499,38 +399,16 @@ export default function About() {
                         <Box className="about-mockup-url-inner" />
                       </Box>
                     </Box>
-                    <Box
-                      component="img"
-                      src={item.image}
-                      alt={`${item.title} design by ${item.artist}`}
-                    />
+                    <Box component="img" src={item.image} alt={`${item.title} design by ${item.artist}`} />
                   </Box>
                 ) : (
-                  <Box
-                    component="img"
-                    src={item.image}
-                    alt={`${item.title} design by ${item.artist}`}
-                  />
+                  <Box component="img" src={item.image} alt={`${item.title} design by ${item.artist}`} />
                 )}
                 <Box sx={{ p: '20px 20px 24px' }}>
-                  <Typography
-                    sx={{
-                      fontSize: '18px',
-                      fontWeight: 600,
-                      lineHeight: 1.3,
-                      color: '#0F172A',
-                    }}
-                  >
+                  <Typography sx={{ fontSize: '18px', fontWeight: 600, lineHeight: 1.3, color: '#0F172A' }}>
                     {item.title}
                   </Typography>
-                  <Typography
-                    sx={{
-                      fontSize: '14px',
-                      lineHeight: 1.4,
-                      color: '#94A3B8',
-                      mt: 0.5,
-                    }}
-                  >
+                  <Typography sx={{ fontSize: '14px', lineHeight: 1.4, color: '#94A3B8', mt: 0.5 }}>
                     by {item.artist}
                   </Typography>
                 </Box>
@@ -540,21 +418,14 @@ export default function About() {
         </Box>
       </Box>
 
-      {/* CTA Banner */}
-      <Box
-        ref={ctaRef}
-        sx={{ bgcolor: '#0055FF', py: { xs: 6, md: 10 }, px: '24px', textAlign: 'center' }}
-      >
+      {/* ------------------------------------------------------------ */}
+      {/* CTA banner                                                     */}
+      {/* ------------------------------------------------------------ */}
+      <Box ref={ctaRef} sx={{ bgcolor: '#0055FF', py: { xs: 6, md: 10 }, px: '24px', textAlign: 'center' }}>
         <Box sx={{ maxWidth: '700px', mx: 'auto' }}>
           <Typography
             variant="h2"
-            sx={{
-              fontSize: { xs: '30px', md: '40px' },
-              fontWeight: 700,
-              lineHeight: 1.2,
-              color: '#fff',
-              mb: 2,
-            }}
+            sx={{ fontSize: { xs: '30px', md: '40px' }, fontWeight: 700, lineHeight: 1.2, color: '#fff', mb: 2 }}
           >
             Ready to Build Your Original?
           </Typography>
@@ -601,3 +472,83 @@ export default function About() {
     </Box>
   )
 }
+
+/* ------------------------------------------------------------------ */
+/* Shared styles reused across the page                                */
+/* ------------------------------------------------------------------ */
+
+const sectionLabelStyles = {
+  color: 'var(--primary-blue, #0055FF)',
+  fontSize: '12px',
+  fontWeight: 600,
+  letterSpacing: '0.2em',
+  textTransform: 'uppercase',
+  mb: 1,
+} as const
+
+const sectionHeadingStyles = {
+  fontSize: { xs: '30px', md: '40px' },
+  fontWeight: 700,
+  lineHeight: 1.2,
+  color: '#0F172A',
+} as const
+
+const bodyTextStyles = {
+  fontSize: '16px',
+  lineHeight: 1.7,
+  color: '#64748B',
+  maxWidth: '520px',
+  mb: 2.5,
+} as const
+
+const statNumberStyles = {
+  fontSize: '36px',
+  fontWeight: 700,
+  lineHeight: 1,
+  color: 'var(--primary-blue, #0055FF)',
+} as const
+
+const statLabelStyles = {
+  fontSize: '14px',
+  lineHeight: 1.4,
+  color: '#64748B',
+  mt: 0.5,
+} as const
+
+const photoFrameStyles = {
+  borderRadius: '20px',
+  overflow: 'hidden',
+  boxShadow: '0 8px 24px rgba(0,0,0,0.08)',
+  lineHeight: 0,
+} as const
+
+const primaryButtonStyles = {
+  bgcolor: '#0055FF',
+  color: '#fff',
+  fontWeight: 600,
+  px: 4,
+  py: 1.75,
+  borderRadius: '12px',
+  fontSize: '15px',
+  textTransform: 'none',
+  '&:hover': { bgcolor: '#0044CC', transform: 'scale(1.02)' },
+  transition: 'all 150ms ease',
+} as const
+
+const secondaryButtonStyles = {
+  borderColor: 'rgba(255,255,255,0.4)',
+  borderWidth: 1.5,
+  color: '#fff',
+  fontWeight: 600,
+  px: 4,
+  py: 1.75,
+  borderRadius: '12px',
+  fontSize: '15px',
+  textTransform: 'none',
+  '&:hover': {
+    borderColor: 'rgba(255,255,255,0.6)',
+    bgcolor: 'rgba(255,255,255,0.1)',
+    transform: 'scale(1.02)',
+  },
+  transition: 'all 150ms ease',
+} as const

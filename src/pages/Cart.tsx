@@ -1,3 +1,12 @@
+/**
+ * Cart.tsx
+ * --------
+ * The shopping cart page.
+ *
+ * Reads the global cart store, lets the user change quantities / remove
+ * items (with a small GSAP exit animation) and shows an order summary
+ * with tax calculated from the subtotal.
+ */
 
 import { useEffect, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
@@ -6,13 +15,18 @@ import { Box, Container, Typography, Button, Grid, IconButton, Paper } from '@mu
 import { Trash2, Minus, Plus, ArrowRight, Lock, ShoppingBag } from 'lucide-react'
 import { useCartStore } from '../store/cartStore'
 
+/** Tax rate applied to the order subtotal. */
+const TAX_RATE = 0.02
+
 export default function Cart() {
   const navigate = useNavigate()
   const { items, removeItem, updateQuantity, subtotal } = useCartStore()
+
+  // Refs used for animations (one per cart item, plus the summary card).
   const itemRefs = useRef<Map<string, HTMLDivElement>>(new Map())
   const summaryRef = useRef<HTMLDivElement>(null)
-  const emptyRef = useRef<HTMLDivElement>(null)
 
+  // Fade + slide the order summary in once on mount.
   useEffect(() => {
     const ctx = gsap.context(() => {
       gsap.fromTo(
@@ -24,11 +38,16 @@ export default function Cart() {
     return () => ctx.revert()
   }, [])
 
+  // Slide the row out of view, then actually remove the item from state.
   const handleRemove = (id: string) => {
     const el = itemRefs.current.get(id)
     if (el) {
       gsap.to(el, {
-        x: -60, opacity: 0, scale: 0.95, duration: 0.3, ease: 'power2.in',
+        x: -60,
+        opacity: 0,
+        scale: 0.95,
+        duration: 0.3,
+        ease: 'power2.in',
         onComplete: () => removeItem(id),
       })
     } else {
@@ -36,20 +55,25 @@ export default function Cart() {
     }
   }
 
+  // Keep a registry of item element refs so animations can target them.
   const setItemRef = (id: string, el: HTMLDivElement | null) => {
     if (el) itemRefs.current.set(id, el)
     else itemRefs.current.delete(id)
   }
 
+  // Money math for the summary card.
   const subtotalAmount = subtotal()
-  const tax = subtotalAmount * 0.02
+  const tax = subtotalAmount * TAX_RATE
   const total = subtotalAmount + tax
 
+  /* ------------------------------------------------------------------ */
+  /* Empty cart state                                                    */
+  /* ------------------------------------------------------------------ */
   if (items.length === 0) {
     return (
       <Box sx={{ minHeight: '100vh', backgroundImage: 'radial-gradient(#e2e8f0 1px, transparent 1px)', backgroundSize: '24px 24px' }}>
         <Container maxWidth="lg" sx={{ py: 5 }}>
-          <Box ref={emptyRef} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', py: 16, textAlign: 'center' }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', py: 16, textAlign: 'center' }}>
             <Box sx={{ width: 80, height: 80, borderRadius: '50%', bgcolor: '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 3 }}>
               <ShoppingBag size={36} color="#0055FF" />
             </Box>
@@ -83,10 +107,13 @@ export default function Cart() {
     )
   }
 
+  /* ------------------------------------------------------------------ */
+  /* Filled cart state                                                  */
+  /* ------------------------------------------------------------------ */
   return (
     <Box sx={{ minHeight: '100vh', backgroundImage: 'radial-gradient(#e2e8f0 1px, transparent 1px)', backgroundSize: '24px 24px' }}>
       <Container maxWidth="lg" sx={{ py: 5 }}>
-        {/* Header */}
+        {/* Page header with the item count. */}
         <Box sx={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', mb: 4 }}>
           <Box>
             <Typography sx={{ fontWeight: 700, color: '#0055FF', fontSize: '36px' }}>
@@ -99,7 +126,7 @@ export default function Cart() {
         </Box>
 
         <Grid container spacing={4}>
-          {/* Cart Items */}
+          {/* Cart item list. */}
           <Grid size={{ xs: 12, md: 8 }} sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             {items.map((item) => (
               <Paper
@@ -107,12 +134,15 @@ export default function Cart() {
                 ref={(el) => setItemRef(item.id, el)}
                 sx={{ borderRadius: '16px', boxShadow: '0 2px 12px rgba(0,0,0,0.04)', p: 2.5, display: 'flex', gap: 2 }}
               >
+                {/* Product thumbnail. */}
                 <Box
                   component="img"
                   src={item.imageUrl}
                   alt={item.name}
                   sx={{ width: 80, height: 80, borderRadius: '12px', objectFit: 'cover', flexShrink: 0 }}
                 />
+
+                {/* Name, chosen size/color and price. */}
                 <Box sx={{ flex: 1, minWidth: 0 }}>
                   <Typography sx={{ fontWeight: 600, color: '#0F172A', fontSize: '16px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {item.name}
@@ -124,6 +154,8 @@ export default function Cart() {
                     ${item.price.toFixed(2)}
                   </Typography>
                 </Box>
+
+                {/* Remove button + quantity stepper. */}
                 <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'space-between', flexShrink: 0 }}>
                   <IconButton onClick={() => handleRemove(item.id)} sx={{ color: '#EF4444', '&:hover': { bgcolor: '#FEF2F2' } }}>
                     <Trash2 size={20} />
@@ -152,13 +184,14 @@ export default function Cart() {
             ))}
           </Grid>
 
-          {/* Order Summary */}
+          {/* Order summary with subtotal, shipping, tax and total. */}
           <Grid size={{ xs: 12, md: 4 }}>
             <Box ref={summaryRef} sx={{ position: { md: 'sticky' }, top: { md: 100 }, alignSelf: 'flex-start' }}>
               <Paper sx={{ bgcolor: '#0F172A', borderRadius: '20px', p: 3.5, boxShadow: '0 12px 40px rgba(0,0,0,0.15)' }}>
                 <Typography sx={{ color: 'white', fontWeight: 700, fontSize: '20px', mb: 3 }}>
                   Summary
                 </Typography>
+
                 <Box sx={{ '& > :not(:last-child)': { mb: 1.5 } }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                     <Typography sx={{ color: '#CBD5E1', fontSize: '14px' }}>Subtotal</Typography>
@@ -182,6 +215,8 @@ export default function Cart() {
                     </Typography>
                   </Box>
                 </Box>
+
+                {/* Proceed to checkout. */}
                 <Button
                   fullWidth
                   onClick={() => navigate('/checkout')}

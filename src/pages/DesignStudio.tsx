@@ -1,3 +1,19 @@
+/**
+ * DesignStudio.tsx
+ * ----------------
+ * The fullscreen t-shirt design tool.
+ *
+ * Layout is three panels: a left sidebar (text/image tools), the center
+ * canvas (draggable text + images on a t-shirt), and a right sidebar
+ * (materials + AI save). The whole editor state lives in the
+ * `designStore`, so any component can read/update it.
+ *
+ * Key interactions:
+ *   - Drag placed images / text around the canvas (percent-based coords)
+ *   - Eraser tool removes images / text on click
+ *   - Save captures the canvas as PNG and asks the backend for a listing
+ */
+
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import gsap from 'gsap'
@@ -46,10 +62,16 @@ import { useDesignStore } from '../store/designStore'
 import type { PlacedImage } from '../store/designStore'
 import { generateAiListing } from '../lib/api'
 
+/* ------------------------------------------------------------------ */
+/* Static data for the studio                                          */
+/* ------------------------------------------------------------------ */
+
+// MUI Select arrow icon.
 const DropdownIcon = (props: { className?: string }) => (
   <ChevronDown size={16} className={props.className} />
 )
 
+/** Quick-pick colors for the text on the canvas. */
 const textColorSwatches = [
   { name: 'Dark', hex: '#1F2937' },
   { name: 'White', hex: '#FFFFFF' },
@@ -59,6 +81,7 @@ const textColorSwatches = [
   { name: 'Yellow', hex: '#F59E0B' },
 ]
 
+/** Quick-pick colors for the t-shirt itself. */
 const shirtColorSwatches = [
   { name: 'White', hex: '#FFFFFF' },
   { name: 'Black', hex: '#1F2937' },
@@ -74,6 +97,7 @@ const shirtColorSwatches = [
   { name: 'Teal', hex: '#14B8A6' },
 ]
 
+/** Decorative gradient swatches in the extended color picker. */
 const gradientBlocks = [
   { name: 'Sunset', value: 'linear-gradient(135deg, #FF6B6B, #FFA94D)', color: '#FF6B6B' },
   { name: 'Ocean', value: 'linear-gradient(135deg, #4ECDC4, #2C3E7B)', color: '#4ECDC4' },
@@ -83,8 +107,25 @@ const gradientBlocks = [
   { name: 'Peach', value: 'linear-gradient(135deg, #FAD0C4, #FFD1FF)', color: '#FAD0C4' },
 ]
 
+/** Font names shown in the font dropdown. */
 const fontOptions = ['Montserrat Bold', 'Inter', 'Playfair Display', 'BIG CAPS', 'Cursive', 'Halloween']
 
+/**
+ * Map a font option to the actual CSS font-family used on the canvas.
+ * Kept as a lookup table so the JSX only needs to read `fontFamily`.
+ */
+const FONT_FAMILIES: Record<string, string> = {
+  'Montserrat Bold': 'Montserrat, sans-serif',
+  Inter: 'Inter, sans-serif',
+  'Playfair Display': 'Playfair Display, serif',
+  'BIG CAPS': 'Impact, Arial Black, sans-serif',
+  Cursive: 'Brush Script MT, cursive',
+  Halloween: 'Nosifer, Creepster, fantasy',
+}
+
+const fontFamilyFor = (font: string) => FONT_FAMILIES[font] ?? 'Inter, sans-serif'
+
+/** Predefined designs the user can click to place on the shirt. */
 const designThumbnails = [
   { src: '/asserts/DesignStudioAsserts/mountine-design.png', name: 'Mountain' },
   { src: '/asserts/DesignStudioAsserts/chicle-design.png', name: 'Chicle' },
@@ -96,6 +137,7 @@ const designThumbnails = [
   { src: '/asserts/DesignStudioAsserts/spidy-design.png', name: 'Spidy' },
 ]
 
+/** Drawing tools shown in the right sidebar. */
 const tools = [
   { id: 'pencil', label: 'Color Pencil', icon: Pencil },
   { id: 'pen', label: 'Color Pen', icon: Pen },
@@ -137,6 +179,14 @@ export default function DesignStudio() {
 
   const [showPalette, setShowPalette] = useState(false)
   const [paletteHex, setPaletteHex] = useState(shirtColor)
+  const [editingHex, setEditingHex] = useState(false)
+
+  // Keep the hex textbox in sync with the chosen shirt color, unless the
+  // user is currently typing a custom hex value. This "adjust state during
+  // render" pattern avoids a setState-in-effect lint error.
+  if (!editingHex && paletteHex !== shirtColor) {
+    setPaletteHex(shirtColor)
+  }
   const [dragImageId, setDragImageId] = useState<string | null>(null)
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
   const [isDraggingText, setIsDraggingText] = useState(false)
@@ -153,9 +203,6 @@ export default function DesignStudio() {
   const [showMobileTools, setShowMobileTools] = useState(false)
   const [showMobileMaterials, setShowMobileMaterials] = useState(false)
 
-  useEffect(() => {
-    setPaletteHex(shirtColor)
-  }, [shirtColor])
   const canvasInnerRef = useRef<HTMLDivElement>(null)
 
   const leftSidebarRef = useRef<HTMLDivElement>(null)
@@ -164,6 +211,11 @@ export default function DesignStudio() {
   const activeToolRef = useRef<HTMLButtonElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  /* ------------------------------------------------------------------ */
+  /* Entrance animations                                                 */
+  /* ------------------------------------------------------------------ */
+
+  // Slide both sidebars in from their edges and fade the canvas up.
   useEffect(() => {
     const ctx = gsap.context(() => {
       if (leftSidebarRef.current) {
@@ -179,6 +231,7 @@ export default function DesignStudio() {
     return () => ctx.revert()
   }, [])
 
+  // Give the active tool a quick "pulse" so the user sees the selection.
   useEffect(() => {
     if (activeToolRef.current && activeTool) {
       const ctx = gsap.context(() => {
@@ -188,23 +241,16 @@ export default function DesignStudio() {
     }
   }, [activeTool])
 
-  const fontFamily =
-    font === 'Montserrat Bold'
-      ? 'Montserrat, sans-serif'
-      : font === 'Playfair Display'
-        ? 'Playfair Display, serif'
-        : font === 'BIG CAPS'
-          ? 'Impact, Arial Black, sans-serif'
-          : font === 'Cursive'
-            ? 'Brush Script MT, cursive'
-            : font === 'Halloween'
-              ? 'Nosifer, Creepster, fantasy'
-              : 'Inter, sans-serif'
+  /* ------------------------------------------------------------------ */
+  /* Upload flow: choose file → preview in crop dialog → add to library */
+  /* ------------------------------------------------------------------ */
 
+  // Click the hidden file input.
   const handleUploadClick = () => {
     fileInputRef.current?.click()
   }
 
+  // Read the chosen file as a data URL so we can preview it.
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -218,6 +264,7 @@ export default function DesignStudio() {
     e.target.value = ''
   }
 
+  // User confirmed the crop dialog — save the image to the store.
   const handleCropConfirm = () => {
     if (cropImageSrc) {
       const id = crypto.randomUUID()
@@ -227,11 +274,17 @@ export default function DesignStudio() {
     setCropImageSrc(null)
   }
 
+  // Clicking a thumbnail places a copy of that image on the canvas.
   const handleDesignClick = (imgSrc: string) => {
     const id = crypto.randomUUID()
     addPlacedImage({ id, src: imgSrc, x: 10, y: 15, width: 40, height: 40, rotation: 0, flipH: false })
   }
 
+  /* ------------------------------------------------------------------ */
+  /* Drag & drop on the canvas (images and text)                         */
+  /* ------------------------------------------------------------------ */
+
+  // Record where the grab happened so the image follows the cursor 1:1.
   const handleImageMouseDown = (e: React.MouseEvent, img: PlacedImage) => {
     if (activeTool === 'eraser') return
     e.preventDefault()
@@ -246,6 +299,7 @@ export default function DesignStudio() {
     })
   }
 
+  // Convert cursor movement into new (clamped) % coordinates while dragging.
   const handleCanvasMouseMove = useCallback((e: React.MouseEvent) => {
     const rect = canvasInnerRef.current?.getBoundingClientRect()
     if (!rect) return
@@ -256,6 +310,7 @@ export default function DesignStudio() {
         x: Math.max(0, Math.min(100, pctX - dragOffset.x)),
         y: Math.max(0, Math.min(100, pctY - dragOffset.y)),
       })
+      // Highlight the delete zone while the image is dragged over it.
       const el = document.elementFromPoint(e.clientX, e.clientY)
       setDeleteZoneActive(!!el?.closest('[data-delete-zone]'))
     }
@@ -269,6 +324,7 @@ export default function DesignStudio() {
     }
   }, [dragImageId, dragOffset, updatePlacedImage, isDraggingText, textDragOffset, setTextPosition])
 
+  // Dropping: if over the delete zone, remove the image; always reset drag.
   const handleCanvasMouseUp = useCallback(() => {
     if (dragImageId && deleteZoneActive) {
       removePlacedImage(dragImageId)
@@ -277,6 +333,10 @@ export default function DesignStudio() {
     setDeleteZoneActive(false)
     setIsDraggingText(false)
   }, [dragImageId, deleteZoneActive, removePlacedImage])
+
+  /* ------------------------------------------------------------------ */
+  /* Eraser tool: click a placed image / the text to remove it           */
+  /* ------------------------------------------------------------------ */
 
   const handleEraserClick = (placedImg: PlacedImage) => {
     if (activeTool === 'eraser') {
@@ -290,6 +350,7 @@ export default function DesignStudio() {
     }
   }
 
+  // Same grab-offset logic as images, but for the text overlay.
   const handleTextMouseDown = (e: React.MouseEvent) => {
     if (activeTool === 'eraser') return
     e.preventDefault()
@@ -303,18 +364,28 @@ export default function DesignStudio() {
     })
   }
 
+  /* ------------------------------------------------------------------ */
+  /* Save: snapshot canvas → ask AI for a listing → add to collection    */
+  /* ------------------------------------------------------------------ */
+
   const handleSaveDesign = async () => {
     setAiLoading(true)
     setAiResult(null)
     try {
       const canvasEl = canvasRef.current
+
+      // Snapshot the canvas as PNG (fall back to a stock image on error).
       let capturedImage = placedImages.length > 0 ? placedImages[0].src : '/asserts/CollectionAsserts/cat-drink-coffee-t-shirt.jpg'
       if (canvasEl) {
         try {
           const cvs = await html2canvas(canvasEl, { useCORS: true, scale: 2 })
           capturedImage = cvs.toDataURL('image/png')
-        } catch { /* fallback to default image */ }
+        } catch {
+          // Keep the fallback image.
+        }
       }
+
+      // Send the design to the backend so it shows up in the Collection.
       await generateAiListing({
         text,
         font,
@@ -351,7 +422,9 @@ export default function DesignStudio() {
         onChange={handleFileChange}
       />
 
-      {/* Crop Dialog */}
+      {/* ------------------------------------------------------------ */}
+      {/* Crop dialog — previews an uploaded image before adding it    */}
+      {/* ------------------------------------------------------------ */}
       <Dialog open={cropDialogOpen} onClose={() => setCropDialogOpen(false)} maxWidth="sm" fullWidth>
         <Box sx={{ p: 3 }}>
           <Typography sx={{ fontWeight: 700, fontSize: 18, mb: 2, color: '#0F172A' }}>
@@ -379,7 +452,9 @@ export default function DesignStudio() {
         </Box>
       </Dialog>
 
-      {/* Embedded Header */}
+      {/* ------------------------------------------------------------ */}
+      {/* Embedded header (the studio replaces the shared site header) */}
+      {/* ------------------------------------------------------------ */}
       <Box
         component="header"
         sx={{
@@ -444,9 +519,11 @@ export default function DesignStudio() {
         </Box>
       </Box>
 
-      {/* Three-Panel Layout */}
+      {/* ------------------------------------------------------------ */}
+      {/* Three-panel layout: tools | canvas | materials                */}
+      {/* ------------------------------------------------------------ */}
       <Box sx={{ display: 'flex', flex: 1, overflow: { xs: 'auto', lg: 'hidden' }, flexDirection: { xs: 'column', lg: 'row' } }}>
-        {/* Left Sidebar */}
+        {/* Left Sidebar — text + image design tools */}
         <Box
           ref={leftSidebarRef}
           sx={{
@@ -797,7 +874,7 @@ export default function DesignStudio() {
           </Paper>
         </Box>
 
-        {/* Center Canvas */}
+        {/* Center Canvas — the live t-shirt preview */}
         <Container
           maxWidth={false}
           className="dot-grid"
@@ -1128,7 +1205,7 @@ export default function DesignStudio() {
                       whiteSpace: 'pre-wrap',
                       wordBreak: 'break-word',
                       overflowWrap: 'break-word',
-                      fontFamily,
+                      fontFamily: fontFamilyFor(font),
                       color,
                       textAlign,
                     }}
@@ -1323,6 +1400,8 @@ export default function DesignStudio() {
                   <TextField
                     size="small"
                     value={paletteHex}
+                    onFocus={() => setEditingHex(true)}
+                    onBlur={() => setEditingHex(false)}
                     onChange={(e) => {
                       const val = e.target.value
                       setPaletteHex(val)
@@ -1355,7 +1434,7 @@ export default function DesignStudio() {
           </Paper>
         </Container>
 
-        {/* Right Sidebar */}
+        {/* Right Sidebar — materials, tools, AI save */}
         <Box
           ref={rightSidebarRef}
           sx={{

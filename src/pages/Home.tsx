@@ -1,41 +1,48 @@
+/**
+ * Home.tsx
+ * --------
+ * Landing page. Composed of several sections rendered top to bottom:
+ *
+ *   1. Hero          — headline + CTA over a background image
+ *   2. Brand strip   — infinite scrolling marquee
+ *   3. Featured      — product cards (click to preview)
+ *   4. Services      — "why choose us" cards
+ *   5. CTA banner    — final call-to-action
+ *
+ * Scroll animations are driven by GSAP + ScrollTrigger.
+ */
+
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Box, Container, Typography, Button, Card, CardMedia, CardContent, Grid, Paper, Dialog, IconButton } from '@mui/material'
+import {
+  Box, Container, Typography, Button, Card, CardMedia, CardContent, Grid, Paper, Dialog, IconButton,
+} from '@mui/material'
 import { Sparkles, ArrowRight, Star, Shield, Truck, Award, X } from 'lucide-react'
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 
 gsap.registerPlugin(ScrollTrigger)
 
+/* ------------------------------------------------------------------ */
+/* Static content for the page                                         */
+/* ------------------------------------------------------------------ */
+
+/** Words repeated in the scrolling brand strip. */
 const brands = [
   'SUSTAINABLE', 'PREMIUM QUALITY', 'CUSTOM FIT',
   'FREE SHIPPING', 'EASY RETURNS', 'ECO-FRIENDLY',
   'HANDCRAFTED', 'LIFETIME GUARANTEE',
 ]
 
+/** Featured products shown in the catalog grid. */
 const products = [
-  {
-    name: 'Floral Elegance',
-    price: '$34.99',
-    image: '/asserts/HomeAsserts/white-t-shirt-flower-design.png',
-  },
-  {
-    name: 'Crimson Wave',
-    price: '$29.99',
-    image: '/asserts/HomeAsserts/red-design-t-shirt.png',
-  },
-  {
-    name: 'Sunburst',
-    price: '$32.99',
-    image: '/asserts/HomeAsserts/yellow-t-shirt-design.png',
-  },
-  {
-    name: 'Midnight Navy',
-    price: '$36.99',
-    image: '/asserts/HomeAsserts/dark-blue-t-shirt.png',
-  },
+  { name: 'Floral Elegance', price: '$34.99', image: '/asserts/HomeAsserts/white-t-shirt-flower-design.png' },
+  { name: 'Crimson Wave', price: '$29.99', image: '/asserts/HomeAsserts/red-design-t-shirt.png' },
+  { name: 'Sunburst', price: '$32.99', image: '/asserts/HomeAsserts/yellow-t-shirt-design.png' },
+  { name: 'Midnight Navy', price: '$36.99', image: '/asserts/HomeAsserts/dark-blue-t-shirt.png' },
 ]
 
+/** "Why choose us" service cards. */
 const services = [
   {
     icon: '/asserts/HomeAsserts/service-section-icon.png',
@@ -58,7 +65,10 @@ const services = [
 ]
 
 export default function Home() {
+  // The product image currently shown in the preview dialog.
   const [selectedImage, setSelectedImage] = useState<string | null>(null)
+
+  // Refs for each animated section (used by GSAP).
   const heroRef = useRef<HTMLDivElement>(null)
   const headingRef = useRef<HTMLHeadingElement>(null)
   const subRef = useRef<HTMLParagraphElement>(null)
@@ -69,6 +79,11 @@ export default function Home() {
   const servicesRef = useRef<HTMLDivElement>(null)
   const ctaSectionRef = useRef<HTMLDivElement>(null)
 
+  /* ------------------------------------------------------------------ */
+  /* Animations                                                          */
+  /* ------------------------------------------------------------------ */
+
+  // Hero text: heading, subheading and CTA slide in as one timeline.
   useEffect(() => {
     const ctx = gsap.context(() => {
       const tl = gsap.timeline({ defaults: { ease: 'power3.out' } })
@@ -79,26 +94,25 @@ export default function Home() {
     return () => ctx.revert()
   }, [])
 
+  // Brand strip: scrolls left forever; the strip holds the list twice so
+  // the loop restarts seamlessly.
   useEffect(() => {
     const strip = brandStripRef.current
     if (!strip) return
     const ctx = gsap.context(() => {
       const width = strip.scrollWidth / 2
-      gsap.to(strip, {
-        x: -width,
-        duration: 30,
-        ease: 'none',
-        repeat: -1,
-      })
+      gsap.to(strip, { x: -width, duration: 30, ease: 'none', repeat: -1 })
     }, brandStripRef)
     return () => ctx.revert()
   }, [])
 
+  // Featured product cards fade up one-by-one when scrolled into view.
   useEffect(() => {
     const ctx = gsap.context(() => {
       const cards = productsRef.current?.children
       if (cards) {
-        gsap.fromTo(cards,
+        gsap.fromTo(
+          cards,
           { y: 60, opacity: 0 },
           {
             y: 0, opacity: 1, duration: 0.8, stagger: 0.15,
@@ -110,11 +124,13 @@ export default function Home() {
     return () => ctx.revert()
   }, [])
 
+  // Service cards fade up one-by-one when scrolled into view.
   useEffect(() => {
     const ctx = gsap.context(() => {
       const cards = servicesRef.current?.children
       if (cards) {
-        gsap.fromTo(cards,
+        gsap.fromTo(
+          cards,
           { y: 50, opacity: 0 },
           {
             y: 0, opacity: 1, duration: 0.7, stagger: 0.2,
@@ -126,9 +142,11 @@ export default function Home() {
     return () => ctx.revert()
   }, [])
 
+  // CTA banner scales + fades in when scrolled into view.
   useEffect(() => {
     const ctx = gsap.context(() => {
-      gsap.fromTo(ctaSectionRef.current,
+      gsap.fromTo(
+        ctaSectionRef.current,
         { scale: 0.92, opacity: 0 },
         {
           scale: 1, opacity: 1, duration: 0.8,
@@ -141,8 +159,11 @@ export default function Home() {
 
   return (
     <Box sx={{ overflow: 'hidden' }}>
-      {/* Hero Section */}
+      {/* ------------------------------------------------------------ */}
+      {/* Hero section                                                  */}
+      {/* ------------------------------------------------------------ */}
       <Box className="hero-section" ref={heroRef}>
+        {/* Background image + dark gradient so the text stays readable. */}
         <Box className="hero-bg">
           <img src="/asserts/HomeAsserts/hero-section-image.png" alt="" />
         </Box>
@@ -159,11 +180,7 @@ export default function Home() {
             <Sparkles size={14} />
             CUSTOM APPAREL DESIGN
           </Box>
-          <Typography
-            ref={headingRef}
-            className="hero-headline"
-            sx={{ color: 'white' }}
-          >
+          <Typography ref={headingRef} className="hero-headline" sx={{ color: 'white' }}>
             Where Your Imagination{' '}
             <Box
               component="span"
@@ -176,11 +193,7 @@ export default function Home() {
               Meets the Fabric
             </Box>
           </Typography>
-          <Typography
-            ref={subRef}
-            className="hero-sub"
-            sx={{ color: 'rgba(255,255,255,0.8)' }}
-          >
+          <Typography ref={subRef} className="hero-sub" sx={{ color: 'rgba(255,255,255,0.8)' }}>
             Transform your ideas into wearable art. Premium custom apparel designed
             for those who dare to stand out — from bold graphics to elegant minimalism.
           </Typography>
@@ -223,7 +236,9 @@ export default function Home() {
         </Box>
       </Box>
 
-      {/* Brand Strip */}
+      {/* ------------------------------------------------------------ */}
+      {/* Brand strip — infinite scrolling marquee                      */}
+      {/* ------------------------------------------------------------ */}
       <Box sx={{ bgcolor: 'var(--bg-footer)', py: 3, overflow: 'hidden' }}>
         <Box ref={brandStripRef} sx={{ display: 'flex', gap: 6, whiteSpace: 'nowrap', width: 'fit-content' }}>
           {[...brands, ...brands].map((brand, i) => (
@@ -238,7 +253,9 @@ export default function Home() {
         </Box>
       </Box>
 
-      {/* Featured Products */}
+      {/* ------------------------------------------------------------ */}
+      {/* Featured products                                             */}
+      {/* ------------------------------------------------------------ */}
       <Box ref={featuredRef} className="section-padding">
         <Container maxWidth="lg">
           <Box sx={{ textAlign: 'center', mb: 8 }}>
@@ -253,6 +270,8 @@ export default function Home() {
               Handpicked designs ready to wear. Every piece tells a story.
             </Typography>
           </Box>
+
+          {/* Clicking a card opens the image preview dialog. */}
           <Grid container spacing={3} ref={productsRef}>
             {products.map((product, i) => (
               <Grid key={i} size={{ xs: 12, sm: 6, lg: 3 }}>
@@ -286,7 +305,9 @@ export default function Home() {
         </Container>
       </Box>
 
-      {/* Services */}
+      {/* ------------------------------------------------------------ */}
+      {/* Services                                                      */}
+      {/* ------------------------------------------------------------ */}
       <Box className="section-padding" sx={{ bgcolor: 'var(--bg-page)' }}>
         <Container maxWidth="lg">
           <Box sx={{ textAlign: 'center', mb: 8 }}>
@@ -298,6 +319,7 @@ export default function Home() {
               Every detail matters. That's why we go the extra mile.
             </Typography>
           </Box>
+
           <Grid container spacing={4} ref={servicesRef}>
             {services.map((service, i) => {
               const LucideIcon = service.lucideIcon
@@ -312,6 +334,7 @@ export default function Home() {
                     }}
                     elevation={1}
                   >
+                    {/* Icon inside a circle with a small accent badge. */}
                     <Box
                       sx={{
                         width: 64,
@@ -358,11 +381,10 @@ export default function Home() {
         </Container>
       </Box>
 
-      {/* CTA Banner */}
-      <Box
-        ref={ctaSectionRef}
-        sx={{ bgcolor: 'var(--primary-blue)', py: 10, textAlign: 'center' }}
-      >
+      {/* ------------------------------------------------------------ */}
+      {/* CTA banner                                                     */}
+      {/* ------------------------------------------------------------ */}
+      <Box ref={ctaSectionRef} sx={{ bgcolor: 'var(--primary-blue)', py: 10, textAlign: 'center' }}>
         <Container maxWidth="sm">
           <Typography variant="h3" sx={{ fontWeight: 700, mb: 1 }} color="white">
             Ready to Create Your Original?
@@ -391,7 +413,9 @@ export default function Home() {
         </Container>
       </Box>
 
-      {/* Image Preview Dialog */}
+      {/* ------------------------------------------------------------ */}
+      {/* Image preview dialog                                          */}
+      {/* ------------------------------------------------------------ */}
       <Dialog
         open={!!selectedImage}
         onClose={() => setSelectedImage(null)}
@@ -410,12 +434,7 @@ export default function Home() {
           <X size={20} />
         </IconButton>
         {selectedImage && (
-          <Box
-            component="img"
-            src={selectedImage}
-            alt=""
-            sx={{ width: '100%', display: 'block' }}
-          />
+          <Box component="img" src={selectedImage} alt="" sx={{ width: '100%', display: 'block' }} />
         )}
       </Dialog>
     </Box>
